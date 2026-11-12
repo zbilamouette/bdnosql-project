@@ -74,15 +74,19 @@ jobs:
 
       - name: Upload project
         run: |
-          ssh vps "mkdir -p '$DEPLOY_PATH'"
-          rsync -az --delete \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude '.env' \
-            --exclude 'deploy.env' \
-            --exclude '*.xlsx' \
-            ./ "vps:$DEPLOY_PATH/"
-          scp -q deploy.env "vps:$DEPLOY_PATH/.env"
+          # tar over SSH: no rsync needed on the VPS. Old files are removed
+          # first (except .env) so deleted files don't linger.
+          tar -czf - \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./.env' \
+            --exclude='./deploy.env' \
+            --exclude='*.xlsx' \
+            . | ssh vps "set -e
+              mkdir -p '$DEPLOY_PATH'
+              find '$DEPLOY_PATH' -mindepth 1 -maxdepth 1 ! -name .env -exec rm -rf {} +
+              tar -xzf - -C '$DEPLOY_PATH'"
+          ssh vps "cat > '$DEPLOY_PATH/.env'" < deploy.env
           ssh vps "chmod 600 '$DEPLOY_PATH/.env'"
 
       - name: Build and start containers
@@ -94,7 +98,8 @@ jobs:
       - name: Health check
         run: |
           for i in $(seq 1 30); do
-            if ssh vps "curl -fsS http://127.0.0.1:$API_PORT/health"; then
+            if ssh vps "cd '$DEPLOY_PATH' && docker compose exec -T api \
+                python -c \"import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health').read().decode())\""; then
               echo
               echo "Deployment OK"
               exit 0

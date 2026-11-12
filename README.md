@@ -54,7 +54,7 @@ Sur le serveur : copier `.env.example` en `.env`, changer les mots de passe, pui
 
 ### Déploiement automatique (GitHub Actions)
 
-Le workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) déploie sur `nosql.ggelpm.fr` (`/var/www/nosql`) à chaque push sur `main` (ou manuellement via *Run workflow*). Il envoie le code par rsync, génère le `.env`, lance `docker compose up -d --build` et vérifie `/health`.
+Le workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) déploie sur `nosql.ggelpm.fr` (`/var/www/nosql`) à chaque push sur `main` (ou manuellement via *Run workflow*). Il envoie le code via `tar` + SSH (rsync non requis), génère le `.env`, lance `docker compose up -d --build` et vérifie `/health`.
 
 Secrets à définir dans *Settings → Secrets and variables → Actions* (`VPS_HOST`, `VPS_USER`, `VPS_PORT` et `VPS_SSH_KEY` peuvent aussi être des variables) :
 
