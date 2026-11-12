@@ -6,6 +6,7 @@ import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Livre d'or API", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 

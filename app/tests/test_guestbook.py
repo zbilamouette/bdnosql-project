@@ -15,6 +15,15 @@ class GuestbookTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(main.app)
 
+    @patch("main.list_mongo", return_value=[])
+    @patch("main.list_postgres", return_value=[])
+    def test_stylesheet_is_linked_and_served(self, list_postgres, list_mongo):
+        page = self.client.get("/")
+        self.assertIn('href="http://testserver/static/style.css"', page.text)
+        stylesheet = self.client.get("/static/style.css")
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertTrue(stylesheet.headers["content-type"].startswith("text/css"))
+
     @patch("main.mongo_collection")
     @patch("main.psycopg.connect")
     def test_saves_optional_rating_to_both_databases(self, connect, collection):
