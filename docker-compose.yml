@@ -2,7 +2,7 @@ services:
   api:
     build: ./app
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
     environment:
       PG_DSN: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-nosql}
       MONGO_URI: mongodb://${MONGO_USER:-app}:${MONGO_PASSWORD:-app}@mongo:27017/?authSource=admin

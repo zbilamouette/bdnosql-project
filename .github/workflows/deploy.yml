@@ -1,0 +1,110 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://nosql.ggelpm.fr
+    env:
+      DEPLOY_PATH: /var/www/nosql
+      SSH_HOST: ${{ secrets.VPS_HOST || vars.VPS_HOST }}
+      SSH_USER: ${{ secrets.VPS_USER || vars.VPS_USER }}
+      SSH_PORT: ${{ secrets.VPS_PORT || vars.VPS_PORT || '22' }}
+      API_PORT: ${{ vars.API_PORT || '8000' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
+            echo "::error::VPS_SSH_KEY, VPS_HOST and VPS_USER must be set (secrets or variables)"
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+          EOF
+
+      - name: Generate .env
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'app' }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'nosql' }}
+          MONGO_USER: ${{ secrets.MONGO_USER || 'app' }}
+          MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+          MONGO_DB: ${{ vars.MONGO_DB || 'nosql' }}
+        run: |
+          if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$MONGO_PASSWORD" ]; then
+            echo "::error::POSTGRES_PASSWORD and MONGO_PASSWORD secrets are required"
+            exit 1
+          fi
+          umask 077
+          cat > deploy.env <<EOF
+          API_BIND=127.0.0.1
+          API_PORT=$API_PORT
+          POSTGRES_USER=$POSTGRES_USER
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          POSTGRES_DB=$POSTGRES_DB
+          MONGO_USER=$MONGO_USER
+          MONGO_PASSWORD=$MONGO_PASSWORD
+          MONGO_DB=$MONGO_DB
+          EOF
+
+      - name: Upload project
+        run: |
+          ssh vps "mkdir -p '$DEPLOY_PATH'"
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env' \
+            --exclude 'deploy.env' \
+            --exclude '*.xlsx' \
+            ./ "vps:$DEPLOY_PATH/"
+          scp -q deploy.env "vps:$DEPLOY_PATH/.env"
+          ssh vps "chmod 600 '$DEPLOY_PATH/.env'"
+
+      - name: Build and start containers
+        run: |
+          ssh vps "cd '$DEPLOY_PATH' \
+            && docker compose up -d --build --remove-orphans \
+            && docker image prune -f"
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            if ssh vps "curl -fsS http://127.0.0.1:$API_PORT/health"; then
+              echo
+              echo "Deployment OK"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::API did not become healthy"
+          ssh vps "cd '$DEPLOY_PATH' && docker compose ps && docker compose logs --tail=100"
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: rm -f deploy.env ~/.ssh/id_deploy

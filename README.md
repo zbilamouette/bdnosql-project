@@ -50,4 +50,21 @@ Les données survivent à un `docker compose down` puis `docker compose up` (vol
 
 ## Déploiement
 
-Sur le serveur : copier `.env.example` en `.env`, changer les mots de passe, puis `docker compose up -d --build`. Les bases ne sont pas exposées sur Internet, seul le port de l'API l'est.
+Sur le serveur : copier `.env.example` en `.env`, changer les mots de passe, puis `docker compose up -d --build`. Les bases ne sont pas exposées sur Internet ; avec `API_BIND=127.0.0.1`, l'API n'est accessible que via le reverse proxy.
+
+### Déploiement automatique (GitHub Actions)
+
+Le workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) déploie sur `nosql.ggelpm.fr` (`/var/www/nosql`) à chaque push sur `main` (ou manuellement via *Run workflow*). Il envoie le code par rsync, génère le `.env`, lance `docker compose up -d --build` et vérifie `/health`.
+
+Secrets à définir dans *Settings → Secrets and variables → Actions* (`VPS_HOST`, `VPS_USER`, `VPS_PORT` et `VPS_SSH_KEY` peuvent aussi être des variables) :
+
+| Secret              | Description                                  |
+|---------------------|----------------------------------------------|
+| `VPS_HOST`          | IP ou hostname du VPS                        |
+| `VPS_USER`          | Utilisateur SSH (membre du groupe `docker`)  |
+| `VPS_SSH_KEY`       | Clé privée SSH                               |
+| `VPS_PORT`          | Port SSH (optionnel, défaut `22`)            |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL                      |
+| `MONGO_PASSWORD`    | Mot de passe MongoDB                         |
+
+Variable optionnelle : `API_PORT` (défaut `8000`), port local sur lequel nginx doit pointer.
