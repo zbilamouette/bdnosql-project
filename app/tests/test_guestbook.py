@@ -18,8 +18,8 @@ class GuestbookTests(unittest.TestCase):
     @patch("main.list_mongo", return_value=[])
     @patch("main.list_postgres", return_value=[])
     def test_stylesheet_is_linked_and_served(self, list_postgres, list_mongo):
-        page = self.client.get("/")
-        self.assertIn('href="http://testserver/static/style.css"', page.text)
+        page = self.client.get("/", headers={"X-Forwarded-Proto": "https"})
+        self.assertIn('href="/static/style.css"', page.text)
         stylesheet = self.client.get("/static/style.css")
         self.assertEqual(stylesheet.status_code, 200)
         self.assertTrue(stylesheet.headers["content-type"].startswith("text/css"))
