@@ -1,6 +1,6 @@
 # bdnosql-project
 
-Application web simple : un formulaire dont chaque envoi est persisté dans **PostgreSQL** et **MongoDB**.
+Livre d'or : les visiteurs peuvent laisser un message public, avec une note facultative de 1 à 5. Chaque envoi est persisté dans **PostgreSQL** et **MongoDB**.
 
 ## Architecture
 
@@ -18,7 +18,18 @@ cd bdnosql-project
 docker compose up --build
 ```
 
-Ouvrir http://localhost:8000, remplir le formulaire et envoyer.
+Ouvrir http://localhost:8000, remplir le formulaire et envoyer. Les 50 derniers messages PostgreSQL sont affichés, avec le nombre d'entrées retrouvées dans chaque base (limité à 50 par base).
+
+La colonne `rating` est ajoutée automatiquement à la table existante au démarrage : les anciens messages sont conservés et s'affichent sans note. L'adresse e-mail n'est plus demandée sur le formulaire.
+
+## Tests
+
+Avec les dépendances de `app/requirements.txt` et `httpx` installées :
+
+```bash
+cd app
+python -m unittest discover -s tests -v
+```
 
 ## Vérifier la persistance
 
@@ -43,7 +54,7 @@ Les données survivent à un `docker compose down` puis `docker compose up` (vol
 | Méthode | Route               | Description                          |
 |---------|---------------------|--------------------------------------|
 | GET     | `/`                 | Formulaire + données des deux bases  |
-| POST    | `/api/submissions`  | Crée une entrée (JSON `name`, `email`, `message`) |
+| POST    | `/api/submissions`  | Crée une entrée (JSON `name`, `message`, `rating` et `email` facultatifs) |
 | GET     | `/api/submissions`  | Liste les entrées des deux bases     |
 | GET     | `/health`           | État des connexions                  |
 | GET     | `/docs`             | Documentation Swagger                |

@@ -32,18 +32,20 @@ async def lifespan(app: FastAPI):
             )
             """
         )
+        conn.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS rating INTEGER")
     yield
     mongo_client.close()
 
 
-app = FastAPI(title="NoSQL Project API", lifespan=lifespan)
+app = FastAPI(title="Livre d'or API", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 
 class Submission(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    email: str = Field(min_length=3, max_length=200)
+    email: str | None = Field(default=None, min_length=3, max_length=200)
     message: str = Field(min_length=1, max_length=2000)
+    rating: int | None = Field(default=None, ge=1, le=5)
 
 
 def save_submission(sub: Submission) -> dict:
@@ -51,9 +53,9 @@ def save_submission(sub: Submission) -> dict:
 
     with psycopg.connect(PG_DSN) as conn:
         pg_id = conn.execute(
-            "INSERT INTO submissions (name, email, message, created_at) "
-            "VALUES (%s, %s, %s, %s) RETURNING id",
-            (sub.name, sub.email, sub.message, created_at),
+            "INSERT INTO submissions (name, email, message, created_at, rating) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (sub.name, sub.email or "", sub.message, created_at, sub.rating),
         ).fetchone()[0]
 
     result = mongo_collection.insert_one(
@@ -66,7 +68,7 @@ def save_submission(sub: Submission) -> dict:
 def list_postgres() -> list[dict]:
     with psycopg.connect(PG_DSN, row_factory=dict_row) as conn:
         return conn.execute(
-            "SELECT id, name, email, message, created_at "
+            "SELECT id, name, email, message, created_at, rating "
             "FROM submissions ORDER BY id DESC LIMIT 50"
         ).fetchall()
 
@@ -88,10 +90,11 @@ def index(request: Request):
 @app.post("/submit")
 def submit_form(
     name: str = Form(min_length=1, max_length=100),
-    email: str = Form(min_length=3, max_length=200),
     message: str = Form(min_length=1, max_length=2000),
+    email: str | None = Form(default=None, min_length=3, max_length=200),
+    rating: int | None = Form(default=None, ge=1, le=5),
 ):
-    save_submission(Submission(name=name, email=email, message=message))
+    save_submission(Submission(name=name, email=email, message=message, rating=rating))
     return RedirectResponse("/", status_code=303)
 
 
