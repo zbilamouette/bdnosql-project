@@ -18,7 +18,7 @@ cd bdnosql-project
 docker compose up --build
 ```
 
-Ouvrir http://localhost:8000, remplir le formulaire et envoyer. Les 50 derniers messages PostgreSQL sont affichés, avec le nombre d'entrées retrouvées dans chaque base (limité à 50 par base).
+Ouvrir http://localhost:8000, remplir le formulaire et envoyer. Les 50 derniers messages PostgreSQL sont affichés, avec le nombre d'entrées retrouvées dans chaque base (limité à 50 par base). La page compte les documents MongoDB sans télécharger leur contenu ; l'API continue de renvoyer les 50 derniers documents.
 
 La colonne `rating` est ajoutée automatiquement à la table existante au démarrage : les anciens messages sont conservés et s'affichent sans note. L'adresse e-mail n'est plus demandée sur le formulaire.
 

@@ -73,8 +73,8 @@
 
         <p class="storage">
           PostgreSQL : {{ pg_rows|length }} affiché{% if pg_rows|length != 1 %}s{% endif %} ·
-          MongoDB : {{ mongo_docs|length }} retrouvé{% if mongo_docs|length != 1 %}s{% endif %}<br>
-          Les 50 derniers messages de chaque base sont consultés.
+          MongoDB : {{ mongo_count }} retrouvé{% if mongo_count != 1 %}s{% endif %}<br>
+          Nombre limité à 50 messages par base.
         </p>
       </section>
 

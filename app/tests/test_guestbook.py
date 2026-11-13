@@ -15,9 +15,10 @@ class GuestbookTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(main.app)
 
-    @patch("main.list_mongo", return_value=[])
+    @patch("main.mongo_collection")
     @patch("main.list_postgres", return_value=[])
-    def test_stylesheet_is_linked_and_served(self, list_postgres, list_mongo):
+    def test_stylesheet_is_linked_and_served(self, list_postgres, collection):
+        collection.count_documents.return_value = 0
         page = self.client.get("/", headers={"X-Forwarded-Proto": "https"})
         self.assertIn('href="/static/style.css"', page.text)
         stylesheet = self.client.get("/static/style.css")
@@ -67,9 +68,10 @@ class GuestbookTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(save.call_args.args[0].email, "camille@example.com")
 
-    @patch("main.list_mongo", return_value=[])
+    @patch("main.mongo_collection")
     @patch("main.list_postgres")
-    def test_old_messages_render_without_rating_and_are_escaped(self, list_postgres, list_mongo):
+    def test_old_messages_render_without_rating_and_are_escaped(self, list_postgres, collection):
+        collection.count_documents.return_value = 0
         list_postgres.return_value = [{
             "id": 1,
             "name": "Camille",
@@ -89,6 +91,24 @@ class GuestbookTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertIn('aria-label="4 sur 5 étoiles"', response.text)
         self.assertIn("★★★★☆", response.text)
+
+    @patch("main.mongo_collection")
+    @patch("main.list_postgres", return_value=[])
+    def test_home_counts_mongo_without_fetching_documents(self, list_postgres, collection):
+        for count in (0, 1, 50):
+            collection.count_documents.return_value = count
+            response = self.client.get("/")
+            suffix = "" if count == 1 else "s"
+            self.assertIn(f"MongoDB : {count} retrouvé{suffix}", response.text)
+        collection.count_documents.assert_called_with({}, limit=50)
+        collection.find.assert_not_called()
+
+    @patch("main.list_mongo")
+    @patch("main.list_postgres", return_value=[])
+    def test_api_still_returns_mongo_documents(self, list_postgres, list_mongo):
+        list_mongo.return_value = [{"_id": "123", "name": "Camille", "message": "Bonjour"}]
+        response = self.client.get("/api/submissions")
+        self.assertEqual(response.json()["mongodb"], list_mongo.return_value)
 
 
 class SchemaTests(unittest.IsolatedAsyncioTestCase):

@@ -85,7 +85,10 @@ def index(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"pg_rows": list_postgres(), "mongo_docs": list_mongo()},
+        {
+            "pg_rows": list_postgres(),
+            "mongo_count": mongo_collection.count_documents({}, limit=50),
+        },
     )
 
 
